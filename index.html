@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rock Paper Scissors CV</title>
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- TensorFlow.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0"></script>
+    <!-- HandPose Model -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/handpose@0.0.7"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 Rock Paper Scissors CV</h1>
+            <p class="subtitle">Play using hand gestures!</p>
+        </header>
+
+        <div class="game-area">
+            <!-- Video and Canvas -->
+            <div class="video-container">
+                <video id="video" autoplay playsinline></video>
+                <canvas id="canvas"></canvas>
+                <div id="gesture-indicator" class="gesture-indicator">
+                    <p id="detected-gesture">Show your hand...</p>
+                </div>
+            </div>
+
+            <!-- Game Info -->
+            <div class="game-info">
+                <div class="score-board">
+                    <div class="score">
+                        <h3>You</h3>
+                        <p id="player-score" class="score-number">0</p>
+                    </div>
+                    <div class="score">
+                        <h3>Computer</h3>
+                        <p id="computer-score" class="score-number">0</p>
+                    </div>
+                </div>
+
+                <div id="status" class="status">Ready to play!</div>
+                
+                <div class="choices">
+                    <div class="choice-box">
+                        <h4>Your Choice</h4>
+                        <p id="player-choice" class="choice-display">-</p>
+                    </div>
+                    <div class="choice-box">
+                        <h4>Computer Choice</h4>
+                        <p id="computer-choice" class="choice-display">-</p>
+                    </div>
+                </div>
+
+                <button id="play-btn" class="play-btn" disabled>Initializing...</button>
+                <button id="reset-btn" class="reset-btn">Reset Score</button>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h3>How to Play:</h3>
+            <div class="gesture-guide">
+                <div class="gesture-item">
+                    <span class="emoji">👊</span>
+                    <p>Rock: Closed fist</p>
+                </div>
+                <div class="gesture-item">
+                    <span class="emoji">🫲</span>
+                    <p>Paper: Open hand</p>
+                </div>
+                <div class="gesture-item">
+                    <span class="emoji">✌️</span>
+                    <p>Scissors: Two fingers</p>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>Built with TensorFlow.js HandPose | <a href="https://github.com/ihlamury/rps-cv" target="_blank">View on GitHub</a></p>
+        </footer>
+    </div>
+
+    <script src="gesture-detector.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
