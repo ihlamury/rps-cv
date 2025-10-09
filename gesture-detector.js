@@ -1,11 +1,10 @@
-// Gesture Detection Class
+// Improved Gesture Detection Class
 class GestureDetector {
     constructor() {
         this.model = null;
         this.isModelLoaded = false;
     }
 
-    // Load the HandPose model
     async loadModel() {
         try {
             console.log('Loading HandPose model...');
@@ -19,7 +18,6 @@ class GestureDetector {
         }
     }
 
-    // Detect hands in the video frame
     async detectHands(video) {
         if (!this.isModelLoaded || !this.model) {
             return null;
@@ -34,7 +32,6 @@ class GestureDetector {
         }
     }
 
-    // Draw hand landmarks on canvas
     drawHand(predictions, ctx) {
         if (!predictions || predictions.length === 0) return;
 
@@ -50,7 +47,7 @@ class GestureDetector {
                 ctx.fill();
             }
 
-            // Draw connections between points
+            // Draw connections
             const connections = [
                 [0, 1], [1, 2], [2, 3], [3, 4], // Thumb
                 [0, 5], [5, 6], [6, 7], [7, 8], // Index
@@ -71,79 +68,104 @@ class GestureDetector {
         });
     }
 
-    // Recognize gesture from hand landmarks (improved algorithm)
+    // IMPROVED: Recognize gesture with better accuracy
     recognizeGesture(predictions) {
         if (!predictions || predictions.length === 0) {
             return 'none';
         }
 
-        const landmarks = predictions[0].landmarks;
+        const prediction = predictions[0];
+        const landmarks = prediction.landmarks;
         
-        // Finger tip and base indices
-        const thumbTip = 4, thumbBase = 2;
-        const indexTip = 8, indexBase = 5;
-        const middleTip = 12, middleBase = 9;
-        const ringTip = 16, ringBase = 13;
-        const pinkyTip = 20, pinkyBase = 17;
-        const wrist = 0;
-
-        // Calculate distances to determine if fingers are extended
-        const fingerDistances = [
-            { name: 'index', distance: this.getDistance(landmarks[indexTip], landmarks[wrist]) - this.getDistance(landmarks[indexBase], landmarks[wrist]) },
-            { name: 'middle', distance: this.getDistance(landmarks[middleTip], landmarks[wrist]) - this.getDistance(landmarks[middleBase], landmarks[wrist]) },
-            { name: 'ring', distance: this.getDistance(landmarks[ringTip], landmarks[wrist]) - this.getDistance(landmarks[ringBase], landmarks[wrist]) },
-            { name: 'pinky', distance: this.getDistance(landmarks[pinkyTip], landmarks[wrist]) - this.getDistance(landmarks[pinkyBase], landmarks[wrist]) }
-        ];
-
-        // Count extended fingers (distance threshold lowered for better detection)
-        const threshold = 40; // Lowered from implicit higher value
-        let extendedFingers = fingerDistances.filter(f => f.distance > threshold).length;
+        // Calculate palm size for relative measurements
+        const palmSize = this.getDistance(landmarks[0], landmarks[9]);
+        const relativeThreshold = palmSize * 0.5; // 50% of palm size
         
-        // Check which specific fingers are extended
-        const indexExtended = fingerDistances[0].distance > threshold;
-        const middleExtended = fingerDistances[1].distance > threshold;
-        const ringExtended = fingerDistances[2].distance > threshold;
-        const pinkyExtended = fingerDistances[3].distance > threshold;
-
-        // Check thumb (horizontal distance from palm)
-        const palmCenter = landmarks[0];
-        const thumbDist = Math.abs(landmarks[thumbTip][0] - palmCenter[0]);
-        const thumbBaseDist = Math.abs(landmarks[thumbBase][0] - palmCenter[0]);
-        const thumbExtended = thumbDist > thumbBaseDist + 20;
-
-        console.log(`Extended fingers: ${extendedFingers}, Thumb: ${thumbExtended}`);
+        // Finger indices
+        const fingers = {
+            thumb: { tip: 4, pip: 3, mcp: 2 },
+            index: { tip: 8, pip: 7, mcp: 6 },
+            middle: { tip: 12, pip: 11, mcp: 10 },
+            ring: { tip: 16, pip: 15, mcp: 14 },
+            pinky: { tip: 20, pip: 19, mcp: 18 }
+        };
         
-        // ROCK: All fingers curled (0-1 extended fingers, thumb can be in or out)
-        if (extendedFingers <= 1 && !thumbExtended) {
+        const wrist = landmarks[0];
+        
+        // Check each finger extension using improved method
+        const fingerStates = {
+            thumb: this.isFingerExtended(landmarks, fingers.thumb, wrist, relativeThreshold, true),
+            index: this.isFingerExtended(landmarks, fingers.index, wrist, relativeThreshold, false),
+            middle: this.isFingerExtended(landmarks, fingers.middle, wrist, relativeThreshold, false),
+            ring: this.isFingerExtended(landmarks, fingers.ring, wrist, relativeThreshold, false),
+            pinky: this.isFingerExtended(landmarks, fingers.pinky, wrist, relativeThreshold, false)
+        };
+        
+        const extendedCount = Object.values(fingerStates).filter(state => state).length;
+        
+        console.log('Finger states:', fingerStates, 'Extended:', extendedCount);
+        
+        // SCISSORS: Index and middle extended (most important check first!)
+        if (fingerStates.index && fingerStates.middle) {
+            // Allow scissors even if ring/pinky partially extended
+            if (!fingerStates.ring || extendedCount <= 3) {
+                return 'scissors';
+            }
+        }
+        
+        // ROCK: 0-1 fingers extended
+        if (extendedCount <= 1) {
             return 'rock';
         }
         
-        // PAPER: All or most fingers extended (4-5 fingers including thumb)
-        if (extendedFingers >= 3 || (extendedFingers >= 2 && thumbExtended)) {
+        // PAPER: 3+ fingers extended (but not scissors)
+        if (extendedCount >= 3) {
             return 'paper';
         }
         
-        // SCISSORS: Specifically index and middle finger extended
-        if ((indexExtended && middleExtended) && (!ringExtended && !pinkyExtended)) {
-            return 'scissors';
+        // 2 fingers, check which ones
+        if (extendedCount === 2) {
+            if (fingerStates.index || fingerStates.middle) {
+                return 'scissors';
+            }
         }
         
-        // If 2 fingers but not the right ones, still might be scissors
-        if (extendedFingers === 2 && (indexExtended || middleExtended)) {
-            return 'scissors';
-        }
-
         return 'unknown';
     }
+    
+    // IMPROVED: Better finger extension detection
+    isFingerExtended(landmarks, finger, wrist, threshold, isThumb) {
+        const tip = landmarks[finger.tip];
+        const pip = landmarks[finger.pip];
+        const mcp = landmarks[finger.mcp];
+        
+        if (isThumb) {
+            // Thumb: Check horizontal distance from palm center
+            const palmCenter = landmarks[9]; // Middle finger base
+            const tipDist = Math.abs(tip[0] - palmCenter[0]);
+            const mcpDist = Math.abs(mcp[0] - palmCenter[0]);
+            return tipDist > mcpDist + threshold * 0.4;
+        } else {
+            // Other fingers: Compare distances from wrist
+            const tipToWrist = this.getDistance(tip, wrist);
+            const mcpToWrist = this.getDistance(mcp, wrist);
+            
+            // Check if tip is "above" (lower Y value) the MCP joint (more lenient)
+            const tipAboveMCP = tip[1] < mcp[1];
+            
+            // More lenient threshold for finger extension
+            return (tipToWrist > mcpToWrist + threshold * 0.8) || tipAboveMCP;
+        }
+    }
 
-    // Helper function to calculate Euclidean distance between two points
+    // Helper: Euclidean distance
     getDistance(point1, point2) {
         const dx = point1[0] - point2[0];
         const dy = point1[1] - point2[1];
         return Math.sqrt(dx * dx + dy * dy);
     }
 
-    // Get emoji for gesture (always yellow/default - using base emoji only)
+    // Get emoji for gesture (always yellow/default)
     getGestureEmoji(gesture) {
         const emojis = {
             'rock': ['👊', '✊'],
