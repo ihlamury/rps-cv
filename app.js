@@ -3,6 +3,8 @@ let playerScore = 0;
 let computerScore = 0;
 let isPlaying = false;
 let detectionInterval = null;
+let lastThumbsUpTime = 0; // Prevent rapid triggering
+const THUMBS_UP_COOLDOWN = 2000; // 2 seconds cooldown
 
 // DOM Elements
 const video = document.getElementById('video');
@@ -45,7 +47,7 @@ async function init() {
             const modelLoaded = await detector.loadModel();
             
             if (modelLoaded) {
-                statusEl.textContent = 'Ready to play! Click "Play Round" to start.';
+                statusEl.textContent = 'Ready to play! Click "Play Round" or show 👍 to start.';
                 playBtn.textContent = 'Play Round';
                 playBtn.disabled = false;
                 
@@ -62,7 +64,7 @@ async function init() {
     }
 }
 
-// Continuous hand detection for visual feedback
+// Continuous hand detection for visual feedback WITH THUMBS UP TRIGGER
 function startContinuousDetection() {
     detectionInterval = setInterval(async () => {
         if (!isPlaying) {
@@ -79,6 +81,17 @@ function startContinuousDetection() {
                 const gesture = detector.recognizeGesture(predictions);
                 const name = detector.getGestureName(gesture);
                 detectedGestureEl.textContent = name;
+                
+                // Check for thumbs up to trigger play
+                if (gesture === 'thumbsup') {
+                    const now = Date.now();
+                    if (now - lastThumbsUpTime > THUMBS_UP_COOLDOWN && !playBtn.disabled) {
+                        lastThumbsUpTime = now;
+                        detectedGestureEl.textContent = '👍 Starting game!';
+                        console.log('Thumbs up detected - starting game!');
+                        playRound();
+                    }
+                }
             } else {
                 detectedGestureEl.textContent = 'Show your hand...';
             }
@@ -113,7 +126,7 @@ async function playRound() {
     for (let i = 0; i < 5; i++) {
         const predictions = await detector.detectHands(video);
         const gesture = detector.recognizeGesture(predictions);
-        if (gesture !== 'none' && gesture !== 'unknown') {
+        if (gesture !== 'none' && gesture !== 'unknown' && gesture !== 'thumbsup') {
             detections.push(gesture);
         }
         await sleep(100); // 100ms between detections
@@ -178,6 +191,7 @@ async function playRound() {
     
     // Re-enable play button
     await sleep(2000);
+    statusEl.textContent = 'Ready! Show 👍 or click "Play Round" to play again.';
     playBtn.disabled = false;
     isPlaying = false;
     statusEl.className = 'status';
@@ -206,7 +220,7 @@ function resetScores() {
     computerScoreEl.textContent = '0';
     playerChoiceEl.textContent = '-';
     computerChoiceEl.textContent = '-';
-    statusEl.textContent = 'Scores reset! Ready to play.';
+    statusEl.textContent = 'Scores reset! Show 👍 or click "Play Round" to start.';
     statusEl.className = 'status';
 }
 

@@ -68,7 +68,7 @@ class GestureDetector {
         });
     }
 
-    // IMPROVED: Recognize gesture with better accuracy
+    // IMPROVED: Recognize gesture with better accuracy INCLUDING THUMBS UP
     recognizeGesture(predictions) {
         if (!predictions || predictions.length === 0) {
             return 'none';
@@ -105,6 +105,19 @@ class GestureDetector {
         
         console.log('Finger states:', fingerStates, 'Extended:', extendedCount);
         
+        // THUMBS UP: Only thumb extended, all others curled
+        if (fingerStates.thumb && !fingerStates.index && !fingerStates.middle && 
+            !fingerStates.ring && !fingerStates.pinky) {
+            // Additional check: thumb tip should be above wrist (pointing up)
+            const thumbTip = landmarks[fingers.thumb.tip];
+            const thumbIsPointingUp = thumbTip[1] < wrist[1] - palmSize * 0.3;
+            
+            if (thumbIsPointingUp) {
+                console.log('THUMBS UP DETECTED!');
+                return 'thumbsup';
+            }
+        }
+        
         // SCISSORS: Index and middle extended (most important check first!)
         if (fingerStates.index && fingerStates.middle) {
             // Allow scissors even if ring/pinky partially extended
@@ -114,7 +127,7 @@ class GestureDetector {
         }
         
         // ROCK: 0-1 fingers extended
-        if (extendedCount <= 1) {
+        if (extendedCount <= 1 && !fingerStates.thumb) {
             return 'rock';
         }
         
@@ -171,6 +184,7 @@ class GestureDetector {
             'rock': ['👊', '✊'],
             'paper': ['✋'],
             'scissors': ['✌️'],
+            'thumbsup': ['👍'],
             'none': ['👋'],
             'unknown': ['❓']
         };
@@ -187,6 +201,7 @@ class GestureDetector {
             'rock': 'Rock',
             'paper': 'Paper',
             'scissors': 'Scissors',
+            'thumbsup': 'Thumbs Up - Play!',
             'none': 'Show your hand...',
             'unknown': 'Unknown gesture'
         };
