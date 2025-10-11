@@ -92,7 +92,42 @@ class GestureDetector {
         
         const wrist = landmarks[0];
         
-        // Check each finger extension using improved method
+        // IMPROVED THUMBS UP DETECTION (Check first, more lenient)
+        const thumbTip = landmarks[fingers.thumb.tip];
+        const thumbMcp = landmarks[fingers.thumb.mcp];
+        const indexMcp = landmarks[fingers.index.mcp];
+        const middleMcp = landmarks[fingers.middle.mcp];
+        const ringMcp = landmarks[fingers.ring.mcp];
+        const pinkyMcp = landmarks[fingers.pinky.mcp];
+        
+        // Check if thumb tip is significantly above the other knuckles
+        const thumbAboveIndex = thumbTip[1] < indexMcp[1] - palmSize * 0.2;
+        const thumbAboveMiddle = thumbTip[1] < middleMcp[1] - palmSize * 0.2;
+        const thumbAboveRing = thumbTip[1] < ringMcp[1] - palmSize * 0.2;
+        
+        // Check if other fingertips are NOT extended (curled down)
+        const indexTip = landmarks[fingers.index.tip];
+        const middleTip = landmarks[fingers.middle.tip];
+        const ringTip = landmarks[fingers.ring.tip];
+        const pinkyTip = landmarks[fingers.pinky.tip];
+        
+        const indexCurled = indexTip[1] > indexMcp[1] - palmSize * 0.1;
+        const middleCurled = middleTip[1] > middleMcp[1] - palmSize * 0.1;
+        const ringCurled = ringTip[1] > ringMcp[1] - palmSize * 0.1;
+        const pinkyCurled = pinkyTip[1] > pinkyMcp[1] - palmSize * 0.1;
+        
+        // Thumbs up: thumb up, at least 2 other fingers curled
+        const curledCount = [indexCurled, middleCurled, ringCurled, pinkyCurled].filter(Boolean).length;
+        
+        if ((thumbAboveIndex || thumbAboveMiddle || thumbAboveRing) && curledCount >= 2) {
+            console.log('THUMBS UP DETECTED!', {
+                thumbAboveIndex, thumbAboveMiddle, thumbAboveRing,
+                curledCount, indexCurled, middleCurled, ringCurled, pinkyCurled
+            });
+            return 'thumbsup';
+        }
+        
+        // Check each finger extension using improved method for game gestures
         const fingerStates = {
             thumb: this.isFingerExtended(landmarks, fingers.thumb, wrist, relativeThreshold, true),
             index: this.isFingerExtended(landmarks, fingers.index, wrist, relativeThreshold, false),
@@ -104,19 +139,6 @@ class GestureDetector {
         const extendedCount = Object.values(fingerStates).filter(state => state).length;
         
         console.log('Finger states:', fingerStates, 'Extended:', extendedCount);
-        
-        // THUMBS UP: Only thumb extended, all others curled
-        if (fingerStates.thumb && !fingerStates.index && !fingerStates.middle && 
-            !fingerStates.ring && !fingerStates.pinky) {
-            // Additional check: thumb tip should be above wrist (pointing up)
-            const thumbTip = landmarks[fingers.thumb.tip];
-            const thumbIsPointingUp = thumbTip[1] < wrist[1] - palmSize * 0.3;
-            
-            if (thumbIsPointingUp) {
-                console.log('THUMBS UP DETECTED!');
-                return 'thumbsup';
-            }
-        }
         
         // SCISSORS: Index and middle extended (most important check first!)
         if (fingerStates.index && fingerStates.middle) {
